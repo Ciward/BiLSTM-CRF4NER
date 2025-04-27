@@ -12,7 +12,8 @@ def get_model_dir():
 
 
 def get_chinese_wwm_ext_pytorch_path():
-    bert_path = os.path.join(get_bert_dir(), 'chinese_wwm_ext_pytorch')
+    #bert_path = os.path.join(get_bert_dir(), 'chinese_wwm_ext_pytorch')
+    bert_path = "hfl/chinese-bert-wwm-ext"
     return bert_path
 
 

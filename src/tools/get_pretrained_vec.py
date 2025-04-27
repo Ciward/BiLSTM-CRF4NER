@@ -16,6 +16,7 @@ jieba.setLogLevel(logging.INFO)
 class GetPretrainedVec:
     def __init__(self):
         self.bert_path = get_chinese_wwm_ext_pytorch_path()
+        #self.bert_path = "bert-base-multilingual-cased"
 
     def load(self):
         self.bert = BertModel.from_pretrained(self.bert_path)
@@ -86,12 +87,13 @@ class GetPretrainedVec:
         vocab_size = len(word2id)
         embedding_size = embedding_size
         weight = torch.zeros(vocab_size, embedding_size)
-        for i in range(len(w2v_model.index2word)):
+        # 将 index2word 替换为 index_to_key
+        for i in range(len(w2v_model.index_to_key)):
             try:
-                index = word2id[w2v_model.index2word[i]]
+                index = word2id[w2v_model.index_to_key[i]]
             except:
                 continue
-            weight[index, :] = torch.from_numpy(w2v_model.get_vector(id2word[word2id[w2v_model.index2word[i]]]))
+            weight[index, :] = torch.from_numpy(w2v_model.get_vector(id2word[word2id[w2v_model.index_to_key[i]]]))
 
         return weight
 

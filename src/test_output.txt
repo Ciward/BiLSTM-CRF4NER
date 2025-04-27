@@ -1,0 +1,20 @@
+直接加载模型并在测试集上评估...
+加载模型: ../data/model/bilstm-crf/bilstm-crf-pretrained.pt
+实体级准确率为: 0.9235982747997535
+各实体对应的准确率为: {
+    "NAME": 0.9814814814814815,
+    "TITLE": 0.92578125,
+    "ORG": 0.8964285714285715,
+    "RACE": 1.0,
+    "EDU": 0.963963963963964,
+    "CONT": 1.0,
+    "LOC": 1.0,
+    "PRO": 0.9
+}
+使用 : cuda ...
+加载预训练字向量...
+['B-NAME', 'M-NAME', 'E-NAME', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'O', 'B-PRO', 'M-PRO', 'E-PRO', 'B-EDU', 'E-EDU', 'O', 'B-TITLE', 'M-TITLE', 'M-TITLE', 'M-TITLE', 'E-TITLE', 'O', 'B-ORG', 'M-ORG', 'M-ORG', 'M-ORG', 'M-ORG', 'E-ORG', 'B-TITLE', 'M-TITLE', 'M-TITLE', 'M-TITLE', 'E-TITLE', 'O']
+使用 : cuda ...
+加载预训练字向量...
+tag_dic:  {'NAME': [(0, 3)], 'TITLE': [(20, 5), (32, 5)], 'ORG': [(26, 6)], 'RACE': [], 'EDU': [(17, 2)], 'CONT': [], 'LOC': [], 'PRO': [(14, 3)]}
+{'NAME': ['常建良'], 'TITLE': ['高级工程师', '客座副教授'], 'ORG': ['北京物资学院'], 'EDU': ['学士'], 'PRO': ['工科科']}

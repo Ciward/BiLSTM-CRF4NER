@@ -1,6 +1,8 @@
 import json
 import os
 import torch
+import matplotlib.pyplot as plt
+import numpy as np
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -27,7 +29,7 @@ class NerModel(object):
         self.out_size = out_size
         self.batch_size = 64
         self.lr = 0.01
-        self.epoches = 20
+        self.epoches = 25
         self.print_step = 20
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"使用 : {self.device} ...")
@@ -57,6 +59,10 @@ class NerModel(object):
         else:
             model_name = f"{self.model_type}.pt"
         self.model_save_path = os.path.join(self.model_type_dir, model_name)
+        
+        # 添加用于绘制loss曲线的列表
+        self.train_losses = []
+        self.val_losses = []
     
     def train(self, train_word_lists, train_tag_lists, dev_word_lists, dev_tag_lists, test_word_lists, test_tag_lists, word2id, tag2id):
         train_word_lists, train_tag_lists, _ = sort_by_lengths(train_word_lists, train_tag_lists)
@@ -68,10 +74,17 @@ class NerModel(object):
         for epoch in epoch_iterator:
             self.step = 0
             loss_sum = 0.
+            epoch_loss = 0.
+            batch_count = 0
+            
             for idx in trange(0, len(train_word_lists), self.batch_size, desc="Iteration:"):
                 batch_sents = train_word_lists[idx : idx + self.batch_size]
                 batch_tags = train_tag_lists[idx : idx + self.batch_size]
-                loss_sum += self.train_step(batch_sents, batch_tags, word2id, tag2id)
+                loss = self.train_step(batch_sents, batch_tags, word2id, tag2id)
+                loss_sum += loss
+                epoch_loss += loss
+                batch_count += 1
+                
                 if self.step == total_step:
                     print("\nEpoch {}, step/total_step: {}/{} {:.2f}% Loss:{:.4f}".format(
                         epoch, self.step, total_step,
@@ -79,13 +92,24 @@ class NerModel(object):
                         loss_sum / self.print_step
                     ))
                     loss_sum = 0.
-            self.validate(epoch, dev_word_lists, dev_tag_lists, word2id, tag2id)
+            
+            # 记录每个epoch的平均训练loss
+            avg_train_loss = epoch_loss / batch_count
+            self.train_losses.append(avg_train_loss)
+            print(f"Epoch {epoch} 平均训练 loss: {avg_train_loss:.4f}")
+            
+            # 验证
+            val_loss = self.validate(epoch, dev_word_lists, dev_tag_lists, word2id, tag2id)
+            self.val_losses.append(val_loss)
+            
             self.scheduler.step()
             if epoch > 10 and self.model_type != "bert-bilstm-crf":
                 self.test(test_word_lists, test_tag_lists, word2id, tag2id)
             elif epoch > 15:
                 self.test(test_word_lists, test_tag_lists, word2id, tag2id)
             
+            # 每个epoch结束后更新loss曲线图
+            self.plot_loss_curves()
 
     def train_step(self, batch_sents, batch_tags, word2id, tag2id):
         self.model.train()
@@ -122,8 +146,9 @@ class NerModel(object):
                 loss = self.loss_cal_fun(scores, labels_tensor, tag2id).item()
 
                 val_loss += loss
-
-            print(f"------epoch: {epoch}, val loss: {val_loss}")
+            
+            avg_val_loss = val_loss / val_step if val_step > 0 else val_loss
+            print(f"------epoch: {epoch}, val loss: {avg_val_loss:.4f}")
 
             if val_loss < self.best_val_loss:
                 self.best_val_loss = val_loss
@@ -131,6 +156,41 @@ class NerModel(object):
                 print(f"保存模型，path: {self.model_save_path}")
                 torch.save(self.best_model.state_dict(), self.model_save_path)
                 print(f"curren best val loss: {self.best_val_loss}")
+            
+            return avg_val_loss
+
+    def plot_loss_curves(self):
+        """绘制训练和验证loss曲线并保存"""
+        plt.figure(figsize=(10, 6))
+        epochs = range(1, len(self.train_losses) + 1)
+        
+        plt.plot(epochs, self.train_losses, 'b-', label='训练loss')
+        if self.val_losses:
+            plt.plot(epochs, self.val_losses, 'r-', label='验证loss')
+        
+        plt.title(f'{self.model_type} 训练和验证loss曲线')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.grid(True)
+        
+        # 保存loss曲线图
+        curves_dir = os.path.join(self.model_type_dir, "curves")
+        if not os.path.exists(curves_dir):
+            os.makedirs(curves_dir)
+            
+        loss_curve_path = os.path.join(curves_dir, f"{self.model_type}_loss_curve.png")
+        plt.savefig(loss_curve_path)
+        plt.close()
+        
+        # 同时保存loss数据，便于后续分析
+        loss_data = {
+            "train_losses": self.train_losses,
+            "val_losses": self.val_losses
+        }
+        loss_data_path = os.path.join(curves_dir, f"{self.model_type}_loss_data.json")
+        with open(loss_data_path, 'w', encoding='utf-8') as f:
+            json.dump(loss_data, f, indent=4)
 
     def test(self, test_word_lists, test_tag_lists, word2id, tag2id):
         test_word_lists, test_tag_lists, indices = sort_by_lengths(test_word_lists, test_tag_lists)
@@ -189,3 +249,15 @@ class NerModel(object):
                     tag_list.append(id2tag[ids[j].item()])  
             pre_tag_lists.append(tag_list)           
         return pre_tag_lists
+
+    def load_and_test(self, test_word_lists, test_tag_lists, word2id, tag2id):
+        """加载已保存模型并在测试集上评估"""
+        if not os.path.exists(self.model_save_path):
+            print(f"模型文件不存在: {self.model_save_path}")
+            return
+        self.model.load_state_dict(torch.load(self.model_save_path, map_location=self.device))
+        self.model.eval()
+        print(f"加载模型: {self.model_save_path}")
+        # 兼容 self.best_model
+        self.best_model = self.model
+        self.test(test_word_lists, test_tag_lists, word2id, tag2id)

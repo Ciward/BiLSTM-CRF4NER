@@ -83,6 +83,9 @@ def precision(pre_labels,true_labels):
                     pre.append(1)
                 else:
                     pre.append(0)
+    if len(pre)==0:
+        print("ZeroDivisionError: division by zero!")
+        return 0, result_dic
     total_precision = sum(pre)/len(pre)
 
     return total_precision, result_dic

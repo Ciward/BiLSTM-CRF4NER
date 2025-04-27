@@ -1,4 +1,3 @@
-
 import os
 import time
 from data.data_process import load_data
@@ -81,6 +80,16 @@ class Train:
 
         ner_model.train(train_word_lists, train_tag_lists, dev_word_lists, dev_tag_lists, test_word_lists, test_tag_lists, word2id, tag2id)
 
+    def load_and_test(self, use_pretrained_w2v=False, model_type="bilstm-crf"):
+        # 数据准备
+        self.prepare_data()
+        word2id = load_pickle_obj(self.word2id_path)
+        tag2id = load_pickle_obj(self.tag2id_path)
+        vocab_size = len(word2id)
+        out_size = len(tag2id)
+        ner_model = NerModel(vocab_size, out_size, use_pretrained_w2v=use_pretrained_w2v, model_type=model_type)
+        print("直接加载模型并在测试集上评估...")
+        ner_model.load_and_test(self.test_word_lists, self.test_tag_list, word2id, tag2id)
 
     def predict(self, text, use_pretrained_w2v, model_type):
         word2id = load_pickle_obj(self.word2id_path)
